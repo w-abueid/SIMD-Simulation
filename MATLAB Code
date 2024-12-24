@@ -1,0 +1,119 @@
+% Parameters
+rng(42); % Fix random seed
+data_sizes = [1e2, 1e3, 1e4, 1e5, 1e6, 1e7];
+num_repeats = 1000;
+
+% Initialize arrays
+mean_time_array = zeros(1, length(data_sizes));
+std_time_array = zeros(1, length(data_sizes));
+mean_time_vector = zeros(1, length(data_sizes));
+std_time_vector = zeros(1, length(data_sizes));
+speedup = zeros(1, length(data_sizes));
+
+for s = 1:length(data_sizes)
+    n = data_sizes(s);
+    A = rand(1, n);
+    B = rand(1, n);
+
+    % Exclude first run (JIT effect)
+    time_array_processing = zeros(1, num_repeats);
+    time_vector_processing = zeros(1, num_repeats);
+
+    for r = 1:num_repeats+1
+        % Array processing
+        tic;
+        C_array = zeros(1, n);
+        for i = 1:n
+            C_array(i) = A(i) * B(i);
+        end
+        if r > 1
+            time_array_processing(r-1) = toc;
+        end
+
+        % SIMD processing
+        tic;
+        C_vector = A .* B;
+        if r > 1
+            time_vector_processing(r-1) = toc;
+        end
+    end
+
+    mean_time_array(s) = mean(time_array_processing);
+    std_time_array(s) = std(time_array_processing);
+    mean_time_vector(s) = mean(time_vector_processing);
+    std_time_vector(s) = std(time_vector_processing);
+
+    speedup(s) = mean_time_array(s) / mean_time_vector(s);
+end
+% Display results in the Command Window
+fprintf('\nResults:\n');
+fprintf('Data Size\tArray Time (s)\tSIMD Time (s)\tSpeedup\n');
+for s = 1:length(data_sizes)
+    fprintf('%d\t\t%.6f\t\t%.6f\t\t%.2f\n', data_sizes(s), mean_time_array(s), mean_time_vector(s), speedup(s));
+end
+throughput_array = data_sizes ./ mean_time_array; % Operations per second
+throughput_vector = data_sizes ./ mean_time_vector;
+latency_per_element_array = mean_time_array ./ data_sizes;
+latency_per_element_vector = mean_time_vector ./ data_sizes;
+
+% Plotting Results
+figure;
+
+% Execution Time Plot
+subplot(2, 1, 1);
+hold on;
+errorbar(data_sizes, mean_time_array, std_time_array, '-o', 'DisplayName', 'Array Processing');
+errorbar(data_sizes, mean_time_vector, std_time_vector, '-o', 'DisplayName', 'SIMD Processing');
+hold off;
+xlabel('Data Size (Number of Elements)');
+ylabel('Execution Time (seconds)');
+title('Execution Time vs Data Size');
+legend('Location', 'NorthWest');
+grid on;
+
+% Speedup Plot
+subplot(2, 1, 2);
+plot(data_sizes, speedup, '-o', 'DisplayName', 'Speedup');
+xlabel('Data Size (Number of Elements)');
+ylabel('Speedup (Array Time / SIMD Time)');
+title('Speedup vs Data Size');
+legend('Location', 'NorthWest');
+grid on;
+
+% Throughput Plot
+figure;
+plot(data_sizes, throughput_array, '-o', 'DisplayName', 'Array Processing');
+hold on;
+plot(data_sizes, throughput_vector, '-o', 'DisplayName', 'SIMD Processing');
+hold off;
+xlabel('Data Size (Number of Elements)');
+ylabel('Throughput (Operations per Second)');
+title('Throughput vs Data Size');
+legend('Location', 'NorthWest');
+grid on;
+time_per_element_array = mean_time_array ./ data_sizes;
+time_per_element_vector = mean_time_vector ./ data_sizes;
+
+% Throughput Plot (Log Scale)
+figure;
+loglog(data_sizes, throughput_array, '-o', 'DisplayName', 'Array Processing');
+hold on;
+loglog(data_sizes, throughput_vector, '-o', 'DisplayName', 'SIMD Processing');
+hold off;
+xlabel('Data Size (Number of Elements)');
+ylabel('Throughput (Operations per Second)');
+title('Throughput vs Data Size (Log Scale)');
+legend('Location', 'NorthWest');
+grid on;
+
+% Latency Plot
+figure;
+loglog(data_sizes, latency_per_element_array, '-o', 'DisplayName', 'Latency - Array Processing');
+hold on;
+loglog(data_sizes, latency_per_element_vector, '-o', 'DisplayName', 'Latency - SIMD Processing');
+hold off;
+xlabel('Data Size (Number of Elements)');
+ylabel('Latency (Seconds per Element)');
+title('Latency vs Data Size (Log Scale)');
+legend('Location', 'NorthWest');
+grid on;
